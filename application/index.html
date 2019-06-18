@@ -1,0 +1,148 @@
+<html>
+  <head>
+    <title>PDF.ts Editor</title>
+    <style>
+      body {
+        background-color: grey;
+      }
+      canvas {
+        margin-bottom: 10px;
+        display: block;
+      }
+    </style>
+
+    <link rel="stylesheet" type="text/css" href="/pdf_viewer.css" />
+    <script src="/pdf.js"></script>
+    <script src="/pdf_viewer.js"></script>
+
+    <script src="bundle.js"></script>
+  </head>
+  <body>
+    <script>
+      function download(filename, text) {
+        var element = document.createElement('a');
+        element.setAttribute(
+          'href',
+          'data:text/plain;charset=utf-8,' + encodeURIComponent(text)
+        );
+        element.setAttribute('download', filename);
+
+        element.style.display = 'none';
+        document.body.appendChild(element);
+
+        element.click();
+
+        document.body.removeChild(element);
+      }
+      function renderPage(doc, pageNumber) {
+        doc.getPage(pageNumber).then(page => {
+          const canvas = document.createElement('canvas');
+          const context2d = canvas.getContext('2d');
+
+          const renderContext = {
+            canvasContext: context2d,
+
+            // * higher scale for sharper rendering
+            // * but too high results in pixelated downsizing by the browser
+            viewport: page.getViewport({ scale: 1 })
+          };
+
+          canvas.height = renderContext.viewport.height;
+          canvas.width = renderContext.viewport.width;
+
+          const renderTask = page.render(renderContext);
+          renderTask.promise.then(() => {
+            document.body.append(canvas);
+
+            // assign relative width to enable zoom
+            // ! current css does not affect created canvas
+            //canvas.style.width = '100%';
+
+            if (pageNumber < doc.numPages) {
+              this.renderPage(doc, pageNumber + 1); // render next page
+            } else {
+              console.timeEnd('render and display');
+            }
+          });
+        });
+      }
+      (function() {
+        console.time('create file');
+        var pdf = new PDFDocument(PageSizes.A4);
+        pdf
+          //.addAttachment('helloworld.txt', 'Hello World!!!')
+          .addFont('DiverdaSansCom-Medium')
+          .addFont('Times-Roman')
+          .text([
+            'BT',
+            '  /F1 24 Tf',
+            '  100 100 Td',
+            '  (ABCDEFGHIJKLMNOPQRSTUVWXYZ Hello World Hello World Hello World Hello World Hello World Hello World Hello World Hello World Hello World) Tj',
+            'ET',
+            '% Save the current graphic state',
+            'q ',
+
+            '% Draw a black line segment, using the default line width.',
+            '150 250 m',
+            '150 350 l',
+            'S',
+
+            '% Draw a thicker, dashed line segment.',
+            '4 w % Set line width to 4 points',
+            '[4 6] 0 d % Set dash pattern to 4 units on, 6 units off',
+            '150 250 m',
+            '400 250 l',
+            'S',
+            '[] 0 d % Reset dash pattern to a solid line',
+            '1 w % Reset line width to 1 unit',
+
+            '% Draw a rectangle with a 1-unit red border, filled with light blue.',
+            '1.0 0.0 0.0 RG % Red for stroke color',
+            '0.5 0.75 1.0 rg % Light blue for fill color',
+            '200 300 50 75 re',
+            'B',
+
+            '% Draw a curve filled with gray and with a colored border.',
+            '0.5 0.1 0.2 RG',
+            '0.7 g',
+            '300 300 m',
+            '300 400 400 400 400 300 c',
+            'b',
+            '',
+            '% Restore the graphic state to what it was at the beginning of this stream',
+            'Q'
+          ])
+          .addPage(PageSizes.A5, PageOrientation.Landscape);
+        //.addPage(PageSizes.A7)
+        //.addPage(PageSizes.A6)
+        //.addPage(PageSizes.A10, PageOrientation.Landscape)
+        //.addPage(PageSizes.A6)
+        //.addPage(PageSizes.A8, PageOrientation.Landscape);
+        console.timeEnd('create file');
+
+        console.time('compile file');
+        var compiled = pdf.compile();
+
+        download('test.pdf', compiled);
+        console.timeEnd('compile file');
+
+        // console.log(compiled);
+
+        // create content here
+
+        console.time('load file into pdfjsLib');
+        window.pdfjsLib
+          .getDocument({
+            data: compiled
+          })
+          .promise.then(doc => {
+            // Initial/first page rendering
+            console.timeEnd('load file into pdfjsLib');
+
+            console.time('render and display');
+            this.renderPage(doc, 1);
+          });
+      })();
+    </script>
+  </body>
+</html>
